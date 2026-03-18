@@ -96,16 +96,12 @@ Kullanmak istemediğin eşiği `None` yap.
  
 ---
  
-## API Hakkında
- 
-Bu proje [CoinGecko Public API](https://www.coingecko.com/en/api)'sini kullanır.
- 
-- Ücretsiz, kayıt gerektirmez
-- Rate limit: dakikada 10-30 istek
-- 10.000+ kripto para desteği
- 
+## Günlük Rapor 
+![Günlük Rapor](rapor_2026-03-18.txt)
+
 ---
- 
-## Lisans
- 
-MIT
+
+## Kripto Fiyatları 
+![Kripto Fiyatları](kripto_fiyatlari.csv)
+
+--- 
