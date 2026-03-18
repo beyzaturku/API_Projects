@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kripto Takip</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:        #0a0a0f;
+    --surface:   #111118;
+    --border:    #1e1e2e;
+    --text:      #e8e8f0;
+    --muted:     #555570;
+    --btc:       #f7931a;
+    --eth:       #627eea;
+    --sol:       #9945ff;
+    --up:        #00e5a0;
+    --down:      #ff4566;
+    --mono:      'Space Mono', monospace;
+    --sans:      'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Grid background ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(99,100,180,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99,100,180,.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+
+  /* ── Layout ── */
+  .wrapper {
+    position: relative; z-index: 1;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }
+
+  /* ── Header ── */
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    margin-bottom: 48px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+  }
+  .logo {
+    font-family: var(--sans);
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -1px;
+  }
+  .logo span { color: var(--btc); }
+  .header-meta { font-size: 11px; color: var(--muted); text-align: right; line-height: 1.8; }
+  #clock { color: var(--text); font-size: 13px; }
+
+  /* ── Section title ── */
+  .section-title {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  /* ── Price cards ── */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+  @media(max-width:640px){ .cards-grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+  }
+  .card.btc::before { background: var(--btc); }
+  .card.eth::before { background: var(--eth); }
+  .card.sol::before { background: var(--sol); }
+  .card:hover { border-color: #333355; }
+
+  .card-symbol {
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .card.btc .card-symbol { color: var(--btc); }
+  .card.eth .card-symbol { color: var(--eth); }
+  .card.sol .card-symbol { color: var(--sol); }
+
+  .card-price {
+    font-family: var(--sans);
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -1px;
+    margin-bottom: 8px;
+    transition: color .3s;
+  }
+  .card-change {
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .up   { color: var(--up); }
+  .down { color: var(--down); }
+
+  .card-name { font-size: 10px; color: var(--muted); margin-top: 12px; letter-spacing: 1px; }
+
+  .refresh-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 8px 16px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all .2s;
+    margin-bottom: 24px;
+    letter-spacing: 1px;
+  }
+  .refresh-btn:hover { border-color: var(--text); color: var(--text); }
+  .refresh-btn.loading { opacity: .5; pointer-events: none; }
+  .spin { display: inline-block; }
+  .refresh-btn.loading .spin { animation: spin .6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Chart ── */
+  .chart-section { margin-bottom: 48px; }
+  .chart-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .tab-group { display: flex; gap: 4px; }
+  .tab {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 2px;
+    cursor: pointer;
+    transition: all .15s;
+    letter-spacing: 1px;
+  }
+  .tab.active, .tab:hover { border-color: var(--text); color: var(--text); }
+  .tab.active { background: #1a1a2a; }
+
+  .chart-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 24px;
+  }
+  canvas { max-height: 300px; }
+
+  /* ── Alarm panel ── */
+  .alarm-section { margin-bottom: 48px; }
+  .alarm-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  @media(max-width:640px){ .alarm-grid { grid-template-columns: 1fr; } }
+
+  .alarm-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 20px;
+  }
+  .alarm-card-title {
+    font-family: var(--sans);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+  }
+  .alarm-card.btc .alarm-card-title { color: var(--btc); }
+  .alarm-card.eth .alarm-card-title { color: var(--eth); }
+  .alarm-card.sol .alarm-card-title { color: var(--sol); }
+
+  .alarm-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .alarm-label { font-size: 10px; color: var(--muted); width: 30px; letter-spacing: 1px; }
+  .alarm-input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 10px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  .alarm-input:focus { border-color: var(--muted); }
+  .alarm-input::placeholder { color: var(--muted); }
+  .alarm-save {
+    width: 100%;
+    margin-top: 4px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 8px;
+    border-radius: 2px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    transition: all .15s;
+  }
+  .alarm-save:hover { border-color: var(--text); color: var(--text); }
+
+  .alarm-log {
+    margin-top: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 16px;
+    min-height: 80px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+  .alarm-log-title { font-size: 10px; color: var(--muted); letter-spacing: 2px; margin-bottom: 10px; }
+  .alarm-entry {
+    font-size: 11px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    gap: 10px;
+  }
+  .alarm-entry:last-child { border-bottom: none; }
+  .alarm-entry .time { color: var(--muted); flex-shrink: 0; }
+  .alarm-entry.alarm-up   .msg { color: var(--up); }
+  .alarm-entry.alarm-down .msg { color: var(--down); }
+  .alarm-empty { font-size: 11px; color: var(--muted); }
+
+  /* ── Report ── */
+  .report-section { margin-bottom: 48px; }
+  .report-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  @media(max-width:640px){ .report-grid { grid-template-columns: 1fr; } }
+
+  .report-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    padding: 20px;
+  }
+  .report-card-title {
+    font-family: var(--sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    margin-bottom: 16px;
+  }
+  .report-card.btc .report-card-title { color: var(--btc); }
+  .report-card.eth .report-card-title { color: var(--eth); }
+  .report-card.sol .report-card-title { color: var(--sol); }
+
+  .report-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+  }
+  .report-row:last-child { border-bottom: none; }
+  .report-key { color: var(--muted); letter-spacing: .5px; }
+  .report-val { font-size: 12px; }
+
+  /* ── Status bar ── */
+  .status-bar {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    padding: 8px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    color: var(--muted);
+    z-index: 100;
+    letter-spacing: 1px;
+  }
+  .status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--up);
+    display: inline-block;
+    margin-right: 6px;
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  /* ── Flash animation ── */
+  @keyframes flash { 0%{opacity:.3} 100%{opacity:1} }
+  .flash { animation: flash .4s ease-out; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">KRIPTO<span>.</span>TAKİP</div>
+    <div class="header-meta">
+      <div id="clock">--:--:--</div>
+      <div>CoinGecko API · TRY</div>
+    </div>
+  </header>
+
+  <!-- Price Cards -->
+  <div class="section-title">// ANLIK FİYATLAR</div>
+  <button class="refresh-btn" id="refreshBtn" onclick="fetchPrices()">
+    <span class="spin">↻</span> GÜNCELLE
+  </button>
+  <div class="cards-grid" id="cardsGrid">
+    <div class="card btc" id="card-bitcoin">
+      <div class="card-symbol">BTC</div>
+      <div class="card-price" id="price-bitcoin">—</div>
+      <div class="card-change" id="change-bitcoin">—</div>
+      <div class="card-name">BITCOIN</div>
+    </div>
+    <div class="card eth" id="card-ethereum">
+      <div class="card-symbol">ETH</div>
+      <div class="card-price" id="price-ethereum">—</div>
+      <div class="card-change" id="change-ethereum">—</div>
+      <div class="card-name">ETHEREUM</div>
+    </div>
+    <div class="card sol" id="card-solana">
+      <div class="card-symbol">SOL</div>
+      <div class="card-price" id="price-solana">—</div>
+      <div class="card-change" id="change-solana">—</div>
+      <div class="card-name">SOLANA</div>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="chart-section">
+    <div class="section-title">// FİYAT GEÇMİŞİ (7 GÜN)</div>
+    <div class="chart-controls">
+      <div class="tab-group" id="chartTabs">
+        <button class="tab active" onclick="switchChart('bitcoin', this)">BTC</button>
+        <button class="tab" onclick="switchChart('ethereum', this)">ETH</button>
+        <button class="tab" onclick="switchChart('solana', this)">SOL</button>
+      </div>
+    </div>
+    <div class="chart-box">
+      <canvas id="priceChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Alarm Panel -->
+  <div class="alarm-section">
+    <div class="section-title">// ALARM PANELİ</div>
+    <div class="alarm-grid">
+      <div class="alarm-card btc">
+        <div class="alarm-card-title">BTC · BITCOIN</div>
+        <div class="alarm-row">
+          <div class="alarm-label">ÜST</div>
+          <input class="alarm-input" id="alarm-btc-ust" type="number" placeholder="ör: 4000000">
+        </div>
+        <div class="alarm-row">
+          <div class="alarm-label">ALT</div>
+          <input class="alarm-input" id="alarm-btc-alt" type="number" placeholder="ör: 2500000">
+        </div>
+        <button class="alarm-save" onclick="saveAlarm('bitcoin')">KAYDET</button>
+      </div>
+      <div class="alarm-card eth">
+        <div class="alarm-card-title">ETH · ETHEREUM</div>
+        <div class="alarm-row">
+          <div class="alarm-label">ÜST</div>
+          <input class="alarm-input" id="alarm-eth-ust" type="number" placeholder="ör: 200000">
+        </div>
+        <div class="alarm-row">
+          <div class="alarm-label">ALT</div>
+          <input class="alarm-input" id="alarm-eth-alt" type="number" placeholder="ör: 100000">
+        </div>
+        <button class="alarm-save" onclick="saveAlarm('ethereum')">KAYDET</button>
+      </div>
+      <div class="alarm-card sol">
+        <div class="alarm-card-title">SOL · SOLANA</div>
+        <div class="alarm-row">
+          <div class="alarm-label">ÜST</div>
+          <input class="alarm-input" id="alarm-sol-ust" type="number" placeholder="ör: 10000">
+        </div>
+        <div class="alarm-row">
+          <div class="alarm-label">ALT</div>
+          <input class="alarm-input" id="alarm-sol-alt" type="number" placeholder="ör: 4000">
+        </div>
+        <button class="alarm-save" onclick="saveAlarm('solana')">KAYDET</button>
+      </div>
+    </div>
+
+    <div class="alarm-log" id="alarmLog" style="margin-top:16px">
+      <div class="alarm-log-title">// ALARM KAYITLARI</div>
+      <div class="alarm-empty" id="alarmEmpty">Henüz alarm tetiklenmedi.</div>
+    </div>
+  </div>
+
+  <!-- Report -->
+  <div class="report-section">
+    <div class="section-title">// GÜNLÜK ÖZET RAPORU</div>
+    <div class="report-grid" id="reportGrid">
+      <div class="report-card btc">
+        <div class="report-card-title">BTC · BITCOIN</div>
+        <div class="report-row"><span class="report-key">SON</span><span class="report-val" id="rep-btc-son">—</span></div>
+        <div class="report-row"><span class="report-key">EN YÜKSEK</span><span class="report-val up" id="rep-btc-max">—</span></div>
+        <div class="report-row"><span class="report-key">EN DÜŞÜK</span><span class="report-val down" id="rep-btc-min">—</span></div>
+        <div class="report-row"><span class="report-key">24S DEĞİŞİM</span><span class="report-val" id="rep-btc-deg">—</span></div>
+      </div>
+      <div class="report-card eth">
+        <div class="report-card-title">ETH · ETHEREUM</div>
+        <div class="report-row"><span class="report-key">SON</span><span class="report-val" id="rep-eth-son">—</span></div>
+        <div class="report-row"><span class="report-key">EN YÜKSEK</span><span class="report-val up" id="rep-eth-max">—</span></div>
+        <div class="report-row"><span class="report-key">EN DÜŞÜK</span><span class="report-val down" id="rep-eth-min">—</span></div>
+        <div class="report-row"><span class="report-key">24S DEĞİŞİM</span><span class="report-val" id="rep-eth-deg">—</span></div>
+      </div>
+      <div class="report-card sol">
+        <div class="report-card-title">SOL · SOLANA</div>
+        <div class="report-row"><span class="report-key">SON</span><span class="report-val" id="rep-sol-son">—</span></div>
+        <div class="report-row"><span class="report-key">EN YÜKSEK</span><span class="report-val up" id="rep-sol-max">—</span></div>
+        <div class="report-row"><span class="report-key">EN DÜŞÜK</span><span class="report-val down" id="rep-sol-min">—</span></div>
+        <div class="report-row"><span class="report-key">24S DEĞİŞİM</span><span class="report-val" id="rep-sol-deg">—</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar">
+  <div><span class="status-dot"></span><span id="statusText">Bağlanıyor...</span></div>
+  <div id="lastUpdate">—</div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────
+const state = {
+  prices: {},
+  history: { bitcoin: [], ethereum: [], solana: [] },
+  alarms: {
+    bitcoin:  { ust: null, alt: null },
+    ethereum: { ust: null, alt: null },
+    solana:   { ust: null, alt: null },
+  },
+  alarmLog: [],
+  activeChart: 'bitcoin',
+};
+
+const LABELS = { bitcoin: 'BTC', ethereum: 'ETH', solana: 'SOL' };
+const COLORS  = { bitcoin: '#f7931a', ethereum: '#627eea', solana: '#9945ff' };
+const KRIPTOLAR = ['bitcoin', 'ethereum', 'solana'];
+
+// ── Clock ──────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('tr-TR', { hour12: false });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── Format ─────────────────────────────────────────
+function fmt(n) {
+  return n.toLocaleString('tr-TR', { maximumFractionDigits: 0 }) + ' ₺';
+}
+
+// ── Fetch prices ───────────────────────────────────
+async function fetchPrices() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('loading');
+  try {
+    const res = await fetch(
+      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana&vs_currencies=try&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true'
+    );
+    const data = await res.json();
+    state.prices = data;
+
+    KRIPTOLAR.forEach(id => {
+      const info   = data[id];
+      const price  = info.try;
+      const change = info.try_24h_change;
+      const isUp   = change >= 0;
+
+      // Card
+      const priceEl  = document.getElementById(`price-${id}`);
+      const changeEl = document.getElementById(`change-${id}`);
+      priceEl.textContent = fmt(price);
+      priceEl.className   = 'card-price flash';
+      changeEl.innerHTML  = `<span class="${isUp ? 'up' : 'down'}">${isUp ? '▲' : '▼'} %${Math.abs(change).toFixed(2)}</span>`;
+
+      // History (in-memory simulation with slight random walk)
+      if (state.history[id].length === 0) {
+        const pts = 24;
+        const now = Date.now();
+        for (let i = pts; i >= 0; i--) {
+          const jitter = (Math.random() - 0.5) * price * 0.04;
+          state.history[id].push({
+            t: now - i * 3600000,
+            v: price + jitter,
+          });
+        }
+      } else {
+        state.history[id].push({ t: Date.now(), v: price });
+        if (state.history[id].length > 168) state.history[id].shift();
+      }
+
+      // Report
+      const hist = state.history[id].map(h => h.v);
+      const abbr = id === 'bitcoin' ? 'btc' : id === 'ethereum' ? 'eth' : 'sol';
+      document.getElementById(`rep-${abbr}-son`).textContent = fmt(price);
+      document.getElementById(`rep-${abbr}-max`).textContent = fmt(Math.max(...hist));
+      document.getElementById(`rep-${abbr}-min`).textContent = fmt(Math.min(...hist));
+      const degEl = document.getElementById(`rep-${abbr}-deg`);
+      degEl.textContent  = `${isUp ? '+' : ''}${change.toFixed(2)}%`;
+      degEl.className    = `report-val ${isUp ? 'up' : 'down'}`;
+
+      // Alarm check
+      checkAlarm(id, price);
+    });
+
+    // Update chart
+    renderChart(state.activeChart);
+
+    document.getElementById('statusText').textContent = 'Canlı · CoinGecko';
+    document.getElementById('lastUpdate').textContent =
+      'Son: ' + new Date().toLocaleTimeString('tr-TR');
+
+  } catch (e) {
+    document.getElementById('statusText').textContent = 'Bağlantı hatası';
+  } finally {
+    btn.classList.remove('loading');
+  }
+}
+
+// ── Chart ───────────────────────────────────────────
+let chartInstance = null;
+
+function renderChart(id) {
+  const hist = state.history[id];
+  if (!hist.length) return;
+
+  const labels = hist.map(h =>
+    new Date(h.t).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+  );
+  const values = hist.map(h => h.v);
+  const color  = COLORS[id];
+
+  const ctx = document.getElementById('priceChart').getContext('2d');
+  if (chartInstance) chartInstance.destroy();
+
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        data: values,
+        borderColor: color,
+        borderWidth: 2,
+        pointRadius: 0,
+        fill: true,
+        backgroundColor: (ctx) => {
+          const g = ctx.chart.ctx.createLinearGradient(0, 0, 0, 280);
+          g.addColorStop(0, color + '33');
+          g.addColorStop(1, color + '00');
+          return g;
+        },
+        tension: 0.4,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: {
+          label: ctx => ' ' + fmt(ctx.parsed.y)
+        },
+        backgroundColor: '#1a1a2a',
+        borderColor: '#2a2a3a',
+        borderWidth: 1,
+        titleColor: '#888',
+        bodyColor: color,
+        titleFont: { family: "'Space Mono'" },
+        bodyFont:  { family: "'Space Mono'" },
+      }},
+      scales: {
+        x: {
+          grid: { color: '#1a1a2a' },
+          ticks: { color: '#555570', font: { family: "'Space Mono'", size: 10 }, maxTicksLimit: 8 }
+        },
+        y: {
+          grid: { color: '#1a1a2a' },
+          ticks: {
+            color: '#555570',
+            font: { family: "'Space Mono'", size: 10 },
+            callback: v => v.toLocaleString('tr-TR', { maximumFractionDigits: 0 })
+          }
+        }
+      }
+    }
+  });
+}
+
+function switchChart(id, btn) {
+  state.activeChart = id;
+  document.querySelectorAll('#chartTabs .tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderChart(id);
+}
+
+// ── Alarms ──────────────────────────────────────────
+function saveAlarm(id) {
+  const abbr = id === 'bitcoin' ? 'btc' : id === 'ethereum' ? 'eth' : 'sol';
+  const ust  = parseFloat(document.getElementById(`alarm-${abbr}-ust`).value) || null;
+  const alt  = parseFloat(document.getElementById(`alarm-${abbr}-alt`).value) || null;
+  state.alarms[id] = { ust, alt };
+
+  const btn = event.target;
+  btn.textContent = 'KAYDEDİLDİ ✓';
+  setTimeout(() => btn.textContent = 'KAYDET', 1500);
+}
+
+function checkAlarm(id, price) {
+  const alarm = state.alarms[id];
+  const label = LABELS[id];
+  const now   = new Date().toLocaleTimeString('tr-TR');
+
+  if (alarm.ust && price > alarm.ust) {
+    addAlarmEntry('up', now, `${label} ÜST eşik aşıldı → ${fmt(price)} > ${fmt(alarm.ust)}`);
+  }
+  if (alarm.alt && price < alarm.alt) {
+    addAlarmEntry('down', now, `${label} ALT eşik aşıldı → ${fmt(price)} < ${fmt(alarm.alt)}`);
+  }
+}
+
+function addAlarmEntry(type, time, msg) {
+  const log = document.getElementById('alarmLog');
+  document.getElementById('alarmEmpty')?.remove();
+
+  const entry = document.createElement('div');
+  entry.className = `alarm-entry alarm-${type}`;
+  entry.innerHTML = `<span class="time">${time}</span><span class="msg">${msg}</span>`;
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ── Auto-refresh every 60s ──────────────────────────
+fetchPrices();
+setInterval(fetchPrices, 60000);
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+Günlük Özet Raporu — 2026-03-18
+============================================================
+
+BITCOIN
+  Son fiyat : 3,269,642 TRY
+  En yüksek : 3,273,756 TRY
+  En düşük  : 3,269,642 TRY
+  Ortalama  : 3,271,909 TRY
+  24s değ.  : %-1.42
+
+ETHEREUM
+  Son fiyat : 102,513 TRY
+  En yüksek : 102,707 TRY
+  En düşük  : 102,513 TRY
+  Ortalama  : 102,625 TRY
+  24s değ.  : %-1.36
+
+SOLANA
+  Son fiyat : 4,187 TRY
+  En yüksek : 4,191 TRY
+  En düşük  : 4,187 TRY
+  Ortalama  : 4,188 TRY
+  24s değ.  : %-1.58
